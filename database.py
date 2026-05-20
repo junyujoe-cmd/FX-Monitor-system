@@ -17,6 +17,7 @@ class Database:
         c.executescript("""
             CREATE TABLE IF NOT EXISTS market_quotes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fetch_cycle TEXT NOT NULL,
                 timestamp TEXT NOT NULL,
                 pair TEXT NOT NULL,
                 bid REAL,
@@ -26,6 +27,7 @@ class Database:
             );
             CREATE TABLE IF NOT EXISTS bank_quotes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                fetch_cycle TEXT NOT NULL,
                 timestamp TEXT NOT NULL,
                 bank TEXT NOT NULL,
                 pair TEXT NOT NULL,
@@ -48,23 +50,33 @@ class Database:
         conn.commit()
         conn.close()
 
-    def save_market_quote(self, pair, bid, ask, mid, source):
+    def save_market_quotes_batch(self, fetch_cycle, quotes_dict, source):
+        """保存一轮抓取的所有市场报价（同一 fetch_cycle）"""
+        now = datetime.now().isoformat()
         conn = self._get_conn()
-        conn.execute(
-            "INSERT INTO market_quotes (timestamp, pair, bid, ask, mid, source) VALUES (?, ?, ?, ?, ?, ?)",
-            (datetime.now().isoformat(), pair, bid, ask, mid, source),
-        )
+        for pair, data in quotes_dict.items():
+            conn.execute(
+                "INSERT INTO market_quotes (fetch_cycle, timestamp, pair, bid, ask, mid, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (fetch_cycle, now, pair, data.get("bid"), data.get("ask"), data["mid"], source),
+            )
         conn.commit()
         conn.close()
 
-    def get_latest_market_quote(self, pair):
+    def get_latest_cycle_quotes(self):
+        """获取最新一轮抓取的所有报价"""
         conn = self._get_conn()
-        row = conn.execute(
-            "SELECT bid, ask, mid FROM market_quotes WHERE pair = ? ORDER BY id DESC LIMIT 1",
-            (pair,),
+        cycle = conn.execute(
+            "SELECT fetch_cycle FROM market_quotes ORDER BY id DESC LIMIT 1"
         ).fetchone()
+        if not cycle:
+            conn.close()
+            return None
+        rows = conn.execute(
+            "SELECT pair, bid, ask, mid FROM market_quotes WHERE fetch_cycle = ?",
+            (cycle[0],),
+        ).fetchall()
         conn.close()
-        return row
+        return {row[0]: {"bid": row[1], "ask": row[2], "mid": row[3]} for row in rows}
 
     def get_recent_market_quotes(self, pair, limit=100):
         conn = self._get_conn()
