@@ -62,6 +62,29 @@ class Database:
         conn.commit()
         conn.close()
 
+    def save_bank_quotes_batch(self, fetch_cycle, bank_quotes_list):
+        now = datetime.now().isoformat()
+        conn = self._get_conn()
+        for bank, pair, bid, ask in bank_quotes_list:
+            conn.execute(
+                "INSERT INTO bank_quotes (fetch_cycle, timestamp, bank, pair, bid, ask) VALUES (?, ?, ?, ?, ?, ?)",
+                (fetch_cycle, now, bank, pair, bid, ask),
+            )
+        conn.commit()
+        conn.close()
+
+    def get_chart_data(self, pair, bank, limit=240):
+        conn = self._get_conn()
+        rows = conn.execute("""
+            SELECT m.timestamp, m.mid, b.bid, b.ask
+            FROM market_quotes m
+            LEFT JOIN bank_quotes b ON m.fetch_cycle = b.fetch_cycle AND b.pair = m.pair AND b.bank = ?
+            WHERE m.pair = ?
+            ORDER BY m.id DESC LIMIT ?
+        """, (bank, pair, limit)).fetchall()
+        conn.close()
+        return list(reversed(rows))
+
     def get_latest_cycle_quotes(self):
         """获取最新一轮抓取的所有报价"""
         conn = self._get_conn()

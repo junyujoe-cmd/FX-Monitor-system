@@ -1,7 +1,5 @@
 def calculate_bp(quote, cost):
-    if cost == 0:
-        return 0.0
-    return round((quote - cost) / cost * 10000, 1)
+    return round(abs(quote - cost) * 10000, 1)
 
 
 def market_cost_price(market_bid, market_ask):

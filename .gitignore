@@ -17,5 +17,10 @@ Thumbs.db
 venv/
 .venv/
 
+# Database
+*.db
+*.db-shm
+*.db-wal
+
 # Brainstorming artifacts
 .superpowers/
