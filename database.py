@@ -73,6 +73,29 @@ class Database:
         conn.commit()
         conn.close()
 
+    def save_boc_history(self, history_data):
+        conn = self._get_conn()
+        for item in history_data:
+            exists = conn.execute(
+                "SELECT 1 FROM bank_quotes WHERE fetch_cycle = ? AND bank = '中国银行' AND pair = ?",
+                (f"boc_hist_{item['date']}", item['pair']),
+            ).fetchone()
+            if exists:
+                continue
+            ts = f"{item['date']}T09:00:00"
+            conn.execute(
+                "INSERT INTO bank_quotes (fetch_cycle, timestamp, bank, pair, bid, ask) VALUES (?, ?, ?, ?, ?, ?)",
+                (f"boc_hist_{item['date']}", ts, "中国银行", item['pair'], item['bid'], item['ask']),
+            )
+        conn.commit()
+        conn.close()
+
+    def has_boc_history(self):
+        conn = self._get_conn()
+        row = conn.execute("SELECT 1 FROM bank_quotes WHERE fetch_cycle LIKE 'boc_hist_%' LIMIT 1").fetchone()
+        conn.close()
+        return row is not None
+
     def get_chart_data(self, pair, bank, limit=240):
         conn = self._get_conn()
         rows = conn.execute("""
@@ -100,6 +123,27 @@ class Database:
         ).fetchall()
         conn.close()
         return {row[0]: {"bid": row[1], "ask": row[2], "mid": row[3]} for row in rows}
+
+    def get_chart_data_by_date(self, pair, bank, date_str, limit=480):
+        conn = self._get_conn()
+        rows = conn.execute("""
+            SELECT m.timestamp, m.mid, b.bid, b.ask
+            FROM market_quotes m
+            LEFT JOIN bank_quotes b ON m.fetch_cycle = b.fetch_cycle AND b.pair = m.pair AND b.bank = ?
+            WHERE m.pair = ? AND m.timestamp LIKE ?
+            ORDER BY m.id ASC LIMIT ?
+        """, (bank, pair, f"{date_str}%", limit)).fetchall()
+        if not rows:
+            conn.close()
+            hist = conn.execute("""
+                SELECT timestamp, bid, ask FROM bank_quotes
+                WHERE bank = ? AND pair = ? AND fetch_cycle = ?
+                ORDER BY id ASC LIMIT 1
+            """, (bank, pair, f"boc_hist_{date_str}")).fetchall()
+            conn.close()
+            return [(r[0], (r[1] + r[2]) / 2, r[1], r[2]) for r in hist] if hist else []
+        conn.close()
+        return rows
 
     def get_recent_market_quotes(self, pair, limit=100):
         conn = self._get_conn()

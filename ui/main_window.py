@@ -5,7 +5,7 @@ from datetime import datetime
 from config import FETCH_INTERVAL_SECONDS, BANK_SPREADS
 from database import Database
 from fetcher import fetch_all_quotes
-from bank_fetcher import fetch_boc_rates, fetch_cmb_rates
+from bank_fetcher import fetch_boc_rates, fetch_cmb_rates, fetch_boc_history
 from ui.quote_bar import QuoteBar
 from ui.compare_panel import ComparePanel
 from ui.chart_widget import ChartWidget
@@ -103,6 +103,9 @@ class MainWindow(QMainWindow):
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.activated.connect(self._on_tray_activated)
 
+        if not self.db.has_boc_history():
+            QTimer.singleShot(1000, self._backfill_history)
+
         self.timer = QTimer()
         self.timer.timeout.connect(self._fetch_data)
         self.timer.start(FETCH_INTERVAL_SECONDS * 1000)
@@ -142,6 +145,15 @@ class MainWindow(QMainWindow):
         self.compare_panel.update_bank_data(quotes)
         self.chart_widget.refresh()
         self.status_label.setText(f"最后更新: {datetime.now().strftime('%H:%M:%S')}")
+
+    def _backfill_history(self):
+        self.status_label.setText("正在导入中行历史数据...")
+        hist = fetch_boc_history(days=30)
+        if hist:
+            self.db.save_boc_history(hist)
+            self.status_label.setText(f"已导入 {len(hist)} 条中行历史数据")
+        else:
+            self.status_label.setText("中行历史数据导入失败")
 
     def closeEvent(self, event):
         self.tray_icon.show()

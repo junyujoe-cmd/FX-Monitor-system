@@ -1,5 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
+from datetime import datetime, timedelta
+import akshare as ak
 
 
 def fetch_boc_rates():
@@ -84,3 +86,34 @@ def fetch_cmb_rates():
     except Exception as e:
         print(f"CMB fetch error: {e}")
         return None
+
+
+BOC_NAME_MAP = {"美元": "USDCNY", "港币": "HKDCNY", "欧元": "EURCNY", "日元": "JPYCNY"}
+
+
+def fetch_boc_history(days=30):
+    """从 akshare 获取中行历史牌价 (daily)"""
+    today = datetime.now()
+    start = today - timedelta(days=days)
+    result = []
+    for symbol, pair in BOC_NAME_MAP.items():
+        try:
+            df = ak.currency_boc_sina(
+                symbol=symbol,
+                start_date=start.strftime("%Y%m%d"),
+                end_date=today.strftime("%Y%m%d"),
+            )
+            for _, row in df.iterrows():
+                date_str = row["日期"]
+                buy = float(row["中行汇买价"])
+                sell = float(row["中行钞卖价/汇卖价"])
+                result.append({
+                    "pair": pair,
+                    "date": date_str,
+                    "bid": round(buy / 100, 4),
+                    "ask": round(sell / 100, 4),
+                    "mid": round((buy + sell) / 200, 4),
+                })
+        except Exception as e:
+            print(f"BOC history error for {symbol}: {e}")
+    return result

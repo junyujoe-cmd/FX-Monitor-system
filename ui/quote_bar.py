@@ -75,7 +75,7 @@ class QuoteBar(QWidget):
         layout.setContentsMargins(4, 4, 4, 4)
 
         self.sources = {}
-        for name in ["CFETS", "中国银行", "招商银行", "宁波银行", "杭州银行"]:
+        for name in ["CFETS", "中国银行", "招商银行"]:
             row = SourceRow(name)
             self.sources[name] = row
             layout.addWidget(row)

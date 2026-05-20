@@ -1,5 +1,5 @@
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel
-from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLabel, QDateEdit
+from PyQt6.QtCore import Qt, QDate
 from datetime import datetime
 import pyqtgraph as pg
 from config import BANK_SPREADS
@@ -35,12 +35,19 @@ class ChartWidget(QWidget):
         self.pair_selector.addItems(["USDCNY", "EURCNY", "HKDCNY", "JPYCNY"])
         self.pair_selector.currentTextChanged.connect(self._refresh_chart)
         selector_row.addWidget(self.pair_selector)
-        selector_row.addSpacing(16)
+        selector_row.addSpacing(10)
         selector_row.addWidget(QLabel("银行:"))
         self.bank_selector = QComboBox()
         self.bank_selector.addItems(list(BANK_SPREADS.keys()))
         self.bank_selector.currentTextChanged.connect(self._refresh_chart)
         selector_row.addWidget(self.bank_selector)
+        selector_row.addSpacing(10)
+        selector_row.addWidget(QLabel("日期:"))
+        self.date_picker = QDateEdit()
+        self.date_picker.setDate(QDate.currentDate())
+        self.date_picker.setCalendarPopup(True)
+        self.date_picker.dateChanged.connect(self._refresh_chart)
+        selector_row.addWidget(self.date_picker)
         selector_row.addStretch()
         layout.addLayout(selector_row)
 
@@ -73,9 +80,22 @@ class ChartWidget(QWidget):
         bank = self.bank_selector.currentText()
         spread = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
 
-        data = self.db.get_chart_data(pair, bank, limit=240)
+        selected_date = self.date_picker.date().toString("yyyy-MM-dd")
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        is_today = selected_date == today_str
+
+        if is_today:
+            data = self.db.get_chart_data(pair, bank, limit=240)
+        else:
+            data = self.db.get_chart_data_by_date(pair, bank, selected_date)
+
         self.current_data = data
         if not data:
+            self.plot_widget.clear()
+            self.plot_widget.addItem(self.v_line)
+            self.plot_widget.addItem(self.info_text)
+            self.v_line.setVisible(False)
+            self.info_text.setVisible(False)
             return
 
         self._chart_timestamps = [datetime.fromisoformat(r[0]).timestamp() for r in data]
