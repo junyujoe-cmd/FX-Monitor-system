@@ -152,6 +152,7 @@ class MainWindow(QMainWindow):
         if hist:
             self.db.save_boc_history(hist)
             self.status_label.setText(f"已导入 {len(hist)} 条中行历史数据")
+            self.chart_widget.refresh()
         else:
             self.status_label.setText("中行历史数据导入失败")
 

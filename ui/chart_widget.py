@@ -46,6 +46,13 @@ class ChartWidget(QWidget):
         self.date_picker = QDateEdit()
         self.date_picker.setDate(QDate.currentDate())
         self.date_picker.setCalendarPopup(True)
+        self.date_picker.setDisplayFormat("yyyy-MM-dd")
+        self.date_picker.setStyleSheet("""
+            QDateEdit { color: #ccc; background: #16213e; padding: 2px 6px;
+                        border: 1px solid #444; border-radius: 3px; font-size: 12px; }
+            QDateEdit::drop-down { border: none; }
+            QDateEdit::down-arrow { image: none; }
+        """)
         self.date_picker.dateChanged.connect(self._refresh_chart)
         selector_row.addWidget(self.date_picker)
         selector_row.addStretch()
