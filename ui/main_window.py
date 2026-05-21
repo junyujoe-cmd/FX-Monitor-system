@@ -12,13 +12,14 @@ from ui.chart_widget import ChartWidget
 
 
 class FetchWorker(QThread):
-    finished = pyqtSignal(str, dict)
+    finished = pyqtSignal(str, dict, dict, dict)
 
     def run(self):
         cycle_id = datetime.now().isoformat()
-        quotes = fetch_all_quotes()
-        if quotes:
-            self.finished.emit(cycle_id, quotes)
+        quotes = fetch_all_quotes() or {}
+        boc = fetch_boc_rates() or {}
+        cmb = fetch_cmb_rates() or {}
+        self.finished.emit(cycle_id, quotes, boc, cmb)
 
 
 class CalculatorBridge:
@@ -109,20 +110,25 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self._fetch_data)
         self.timer.start(FETCH_INTERVAL_SECONDS * 1000)
+        self._fetch_busy = False
 
         self._fetch_data()
 
     def _fetch_data(self):
+        if self._fetch_busy:
+            return
+        self._fetch_busy = True
         self.status_label.setText("正在获取数据...")
         self.worker = FetchWorker()
         self.worker.finished.connect(self._on_data_fetched)
         self.worker.start()
 
-    def _on_data_fetched(self, cycle_id, quotes):
-        self.db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
+    def _on_data_fetched(self, cycle_id, quotes, boc_rates, cmb_rates):
+        if not quotes:
+            self.status_label.setText(f"数据获取失败 ({datetime.now().strftime('%H:%M:%S')})")
+            return
 
-        boc_rates = fetch_boc_rates()
-        cmb_rates = fetch_cmb_rates()
+        self.db.save_market_quotes_batch(cycle_id, quotes, "CFETS")
 
         bank_data = []
         for pair, data in quotes.items():
@@ -151,6 +157,7 @@ class MainWindow(QMainWindow):
         self.compare_panel.update_bank_data(quotes)
         self.chart_widget.refresh()
         self.status_label.setText(f"最后更新: {datetime.now().strftime('%H:%M:%S')}")
+        self._fetch_busy = False
 
     def _backfill_history(self):
         self.status_label.setText("正在导入中行历史数据...")
@@ -163,17 +170,10 @@ class MainWindow(QMainWindow):
             self.status_label.setText("中行历史数据导入失败")
 
     def closeEvent(self, event):
-        self.tray_icon.show()
         self.hide()
         if not self._tray_shown:
             self._tray_shown = True
-            self.tray_icon.showMessage(
-                "后台运行中",
-                "外汇监控系统已最小化到系统托盘，将继续在后台采集数据。\n"
-                "点击托盘图标可重新显示窗口。\n右键托盘图标选择「退出程序」彻底关闭。",
-                QSystemTrayIcon.MessageIcon.Information,
-                5000,
-            )
+            self.tray_icon.show()
         event.ignore()
 
     def _on_tray_activated(self, reason):

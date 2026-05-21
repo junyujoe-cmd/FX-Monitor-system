@@ -8,7 +8,7 @@ import akshare as ak
 def fetch_boc_rates():
     """从中国银行官网抓取实时外汇牌价"""
     try:
-        resp = requests.get("https://www.boc.cn/sourcedb/whpj/", timeout=10)
+        resp = requests.get("https://www.boc.cn/sourcedb/whpj/", timeout=8)
         resp.encoding = "utf-8"
         soup = BeautifulSoup(resp.text, "html.parser")
         table = soup.find("table", {"id": "priceTable"})
@@ -57,7 +57,7 @@ def fetch_cmb_rates():
             "Accept": "application/json",
             "Referer": "https://fx.cmbchina.com/",
         }
-        resp = requests.get(url, headers=headers, timeout=10)
+        resp = requests.get(url, headers=headers, timeout=8)
         data = resp.json()
         if data.get("returnCode") != "SUC0000":
             return None

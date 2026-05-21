@@ -11,7 +11,7 @@ echo "=== 构建 ${APP_NAME} macOS 应用 ==="
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR/Contents/MacOS" "$BUILD_DIR/Contents/Resources"
 
-cp main.py config.py database.py calculator.py fetcher.py bank_fetcher.py requirements.txt "$BUILD_DIR/Contents/Resources/"
+cp main.py config.py database.py calculator.py fetcher.py bank_fetcher.py requirements.txt forex_data.db "$BUILD_DIR/Contents/Resources/"
 cp -r ui "$BUILD_DIR/Contents/Resources/ui/"
 
 PYTHON=$(which python3)
@@ -38,7 +38,7 @@ cat > "$BUILD_DIR/Contents/Info.plist" << PLISTEOF
 <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLISTEOF
-echo "APPL????" > "$BUILD_DIR/Contents/PkgInfo"
+printf 'APPL????' > "$BUILD_DIR/Contents/PkgInfo"
 
 echo "✅ 构建完成: $BUILD_DIR"
 echo ""
