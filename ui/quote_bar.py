@@ -6,28 +6,29 @@ from config import BANK_SPREADS, CURRENCY_PAIRS
 class PairWidget(QWidget):
     def __init__(self, pair_name):
         super().__init__()
+        self.pair_name = pair_name
         layout = QVBoxLayout()
         layout.setSpacing(2)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(10, 6, 10, 6)
 
         self.name_label = QLabel(pair_name)
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.name_label.setStyleSheet("color: #888; font-size: 10px;")
 
         mid_row = QHBoxLayout()
-        mid_row.setSpacing(6)
+        mid_row.setSpacing(8)
         self.buy_label = QLabel("买 --")
         self.buy_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.buy_label.setStyleSheet("color: #4ade80; font-weight: bold; font-size: 14px;")
+        self.buy_label.setStyleSheet("color: #4ade80; font-weight: bold; font-size: 15px;")
         self.sell_label = QLabel("卖 --")
         self.sell_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.sell_label.setStyleSheet("color: #ef4444; font-weight: bold; font-size: 14px;")
+        self.sell_label.setStyleSheet("color: #ef4444; font-weight: bold; font-size: 15px;")
         mid_row.addWidget(self.buy_label)
         mid_row.addWidget(self.sell_label)
 
         self.cost_label = QLabel("市场 --  银行 --")
         self.cost_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.cost_label.setStyleSheet("color: #888; font-size: 10px;")
+        self.cost_label.setStyleSheet("color: #666; font-size: 10px;")
 
         layout.addWidget(self.name_label)
         layout.addLayout(mid_row)
@@ -83,7 +84,7 @@ class QuoteBar(QWidget):
         self.setLayout(layout)
         self.setStyleSheet("background: #0a1628;")
 
-    def update_all(self, quotes):
+    def update_all(self, quotes, bank_quotes=None):
         for pair, data in quotes.items():
             mid = data["mid"]
             bid = data.get("bid") if data.get("bid") is not None else mid
@@ -98,7 +99,11 @@ class QuoteBar(QWidget):
                 continue
             for pair, data in quotes.items():
                 mid = data["mid"]
-                bid = round(mid + spread["bid_offset"], 4)
-                ask = round(mid + spread["ask_offset"], 4)
+                if bank_quotes and bank in bank_quotes and pair in bank_quotes[bank]:
+                    r = bank_quotes[bank][pair]
+                    bid, ask = r["bid"], r["ask"]
+                else:
+                    bid = round(mid + spread["bid_offset"], 4)
+                    ask = round(mid + spread["ask_offset"], 4)
                 bank_cost = round((bid + ask) / 2, 4)
                 row.update_pair(pair, bid, ask, mid, bank_cost)

@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("实时外汇监控系统")
-        self.resize(1100, 750)
+        self.resize(1200, 800)
 
         self.db = Database()
         self.calculator = CalculatorBridge(self.db)
@@ -73,7 +73,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
 
         self.quote_bar = QuoteBar()
-        layout.addWidget(self.quote_bar)
+        layout.addWidget(self.quote_bar, stretch=1)
 
         self.tabs = QTabWidget()
         self.compare_panel = ComparePanel(self.db, self.calculator)
@@ -82,7 +82,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.compare_panel, "录入报价")
         self.tabs.addTab(self.chart_widget, "历史图表")
 
-        layout.addWidget(self.tabs)
+        layout.addWidget(self.tabs, stretch=1)
 
         self.status_bar = QStatusBar()
         self.setStatusBar(self.status_bar)
@@ -140,8 +140,14 @@ class MainWindow(QMainWindow):
                 bank_data.append((bank, pair, bid, ask))
         self.db.save_bank_quotes_batch(cycle_id, bank_data)
 
+        bank_quotes_full = {}
+        if boc_rates:
+            bank_quotes_full["中国银行"] = boc_rates
+        if cmb_rates:
+            bank_quotes_full["招商银行"] = cmb_rates
+
         self.calculator.set_market_quotes(quotes)
-        self.quote_bar.update_all(quotes)
+        self.quote_bar.update_all(quotes, bank_quotes_full)
         self.compare_panel.update_bank_data(quotes)
         self.chart_widget.refresh()
         self.status_label.setText(f"最后更新: {datetime.now().strftime('%H:%M:%S')}")
@@ -171,6 +177,6 @@ class MainWindow(QMainWindow):
         event.ignore()
 
     def _on_tray_activated(self, reason):
-        if reason == QSystemTrayIcon.ActivationReason.DoubleClick:
+        if reason in (QSystemTrayIcon.ActivationReason.DoubleClick, QSystemTrayIcon.ActivationReason.Trigger):
             self.showNormal()
             self.raise_()

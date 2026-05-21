@@ -7,6 +7,16 @@ class Database:
     def __init__(self, db_path=DB_PATH):
         self.db_path = db_path
         self._init_tables()
+        self._clean_dirty_data()
+
+    def _clean_dirty_data(self):
+        conn = self._get_conn()
+        conn.execute("DELETE FROM market_quotes WHERE mid IS NULL OR mid < 0.01")
+        conn.execute("DELETE FROM market_quotes WHERE fetch_cycle LIKE 'boc_hist_%'")
+        conn.execute("DELETE FROM bank_quotes WHERE fetch_cycle LIKE 'boc_hist_%'")
+        conn.execute("DELETE FROM bank_quotes WHERE bid IS NULL OR ask IS NULL")
+        conn.commit()
+        conn.close()
 
     def _get_conn(self):
         return sqlite3.connect(self.db_path)
@@ -87,6 +97,10 @@ class Database:
                 "INSERT INTO bank_quotes (fetch_cycle, timestamp, bank, pair, bid, ask) VALUES (?, ?, ?, ?, ?, ?)",
                 (f"boc_hist_{item['date']}", ts, "中国银行", item['pair'], item['bid'], item['ask']),
             )
+            conn.execute(
+                "INSERT INTO market_quotes (fetch_cycle, timestamp, pair, bid, ask, mid, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (f"boc_hist_{item['date']}", ts, item['pair'], None, None, item['mid'], "BOC"),
+            )
         conn.commit()
         conn.close()
 
@@ -96,17 +110,18 @@ class Database:
         conn.close()
         return row is not None
 
-    def get_chart_data(self, pair, bank, limit=240):
+    def get_chart_data(self, pair, bank, limit=480):
         conn = self._get_conn()
+        today = datetime.now().strftime("%Y-%m-%d")
         rows = conn.execute("""
             SELECT m.timestamp, m.mid, b.bid, b.ask
             FROM market_quotes m
             LEFT JOIN bank_quotes b ON m.fetch_cycle = b.fetch_cycle AND b.pair = m.pair AND b.bank = ?
-            WHERE m.pair = ?
-            ORDER BY m.id DESC LIMIT ?
-        """, (bank, pair, limit)).fetchall()
+            WHERE m.pair = ? AND m.timestamp >= ? AND m.timestamp <= ? AND m.fetch_cycle NOT LIKE 'boc_hist_%'
+            ORDER BY m.id ASC LIMIT ?
+        """, (bank, pair, f"{today}T09:00:00", f"{today}T16:30:00", limit)).fetchall()
         conn.close()
-        return list(reversed(rows))
+        return rows
 
     def get_latest_cycle_quotes(self):
         """获取最新一轮抓取的所有报价"""

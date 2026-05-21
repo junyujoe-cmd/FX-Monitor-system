@@ -1,4 +1,5 @@
 import requests
+import pandas as pd
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import akshare as ak
@@ -35,10 +36,11 @@ def fetch_boc_rates():
                         buy_per_100 = float(buy_str)
                         sell_per_100 = float(sell_str)
                         mid_per_100 = float(mid_str)
+                        div = 1 if pair == "JPYCNY" else 100
                         result[pair] = {
-                            "bid": round(buy_per_100 / 100, 4),
-                            "ask": round(sell_per_100 / 100, 4),
-                            "mid": round(mid_per_100 / 100, 4),
+                            "bid": round(buy_per_100 / div, 4),
+                            "ask": round(sell_per_100 / div, 4),
+                            "mid": round(mid_per_100 / div, 4),
                         }
         return result if result else None
     except Exception as e:
@@ -71,12 +73,13 @@ def fetch_cmb_rates():
         for item in data.get("body", []):
             name = item.get("ccyNbr", "")
             if name in name_map:
-                buy_str = item.get("rtbBid", "")
+                buy_str = item.get("rthBid", "") or item.get("rtcBid", "")
                 sell_str = item.get("rthOfr", "")
                 if buy_str and sell_str:
                     pair = name_map[name]
-                    buy_val = float(buy_str) / 100
-                    sell_val = float(sell_str) / 100
+                    div = 1 if pair == "JPYCNY" else 100
+                    buy_val = float(buy_str) / div
+                    sell_val = float(sell_str) / div
                     result[pair] = {
                         "bid": round(buy_val, 4),
                         "ask": round(sell_val, 4),
@@ -107,12 +110,16 @@ def fetch_boc_history(days=30):
                 date_str = row["日期"]
                 buy = float(row["中行汇买价"])
                 sell = float(row["中行钞卖价/汇卖价"])
+                mid_val = row["央行中间价"]
+                if pd.isna(mid_val):
+                    mid_val = row["中行折算价"]
+                mid_val = float(mid_val)
                 result.append({
                     "pair": pair,
                     "date": date_str,
-                    "bid": round(buy / 100, 4),
-                    "ask": round(sell / 100, 4),
-                    "mid": round((buy + sell) / 200, 4),
+                    "bid": round(buy / (1 if pair == "JPYCNY" else 100), 4),
+                    "ask": round(sell / (1 if pair == "JPYCNY" else 100), 4),
+                    "mid": round(mid_val / (1 if pair == "JPYCNY" else 100), 4),
                 })
         except Exception as e:
             print(f"BOC history error for {symbol}: {e}")
