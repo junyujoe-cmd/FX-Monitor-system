@@ -50,10 +50,12 @@ class ChartWidget(QWidget):
         self.v_line = pg.InfiniteLine(angle=90, movable=False,
                                        pen=pg.mkPen("#ffffff", width=1, style=Qt.PenStyle.DashLine))
         self.v_line.setVisible(False)
+        self.v_line.setZValue(100)
         self.plot_widget.addItem(self.v_line)
 
         self.info_text = pg.TextItem()
         self.info_text.setVisible(False)
+        self.info_text.setZValue(100)
         self.plot_widget.addItem(self.info_text)
 
         self.plot_widget.scene().sigMouseMoved.connect(self._on_mouse_moved)
