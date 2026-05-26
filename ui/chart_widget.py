@@ -73,7 +73,8 @@ class ChartWidget(QWidget):
         data = self.db.get_chart_data(pair, bank)
         self.current_data = data
         if not data:
-            self.plot_widget.plotItem.clear()
+            self.plot_widget.plotItem.clearPlots()
+            self.plot_widget.plotItem.legend = None
             return
 
         self._chart_timestamps = [float(datetime.fromisoformat(r[0]).timestamp()) for r in data]

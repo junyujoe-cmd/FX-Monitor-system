@@ -154,7 +154,7 @@ class MainWindow(QMainWindow):
 
         self.calculator.set_market_quotes(quotes)
         self.quote_bar.update_all(quotes, bank_quotes_full)
-        self.compare_panel.update_bank_data(quotes)
+        self.compare_panel.update_bank_data(quotes, bank_quotes_full)
         self.chart_widget.refresh()
         self.status_label.setText(f"最后更新: {datetime.now().strftime('%H:%M:%S')}")
         self._fetch_busy = False

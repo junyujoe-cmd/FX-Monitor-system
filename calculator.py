@@ -17,9 +17,16 @@ def compute_entry_result(user_quote, direction, market_bid, market_ask, bank_bid
     bank_mid = bank_cost_price(bank_bid, bank_ask)
     bp_vs_market = calculate_bp(user_quote, market_mid)
     bp_vs_bank = calculate_bp(user_quote, bank_mid)
+    if direction == "买入价":
+        bp_vs_bank_price = round((user_quote - bank_bid) * 10000, 1)
+    else:
+        bp_vs_bank_price = round((bank_ask - user_quote) * 10000, 1)
     return {
         "market_cost": market_mid,
         "bank_cost": bank_mid,
         "bp_vs_market": bp_vs_market,
         "bp_vs_bank": bp_vs_bank,
+        "bp_vs_bank_price": bp_vs_bank_price,
+        "bank_bid": bank_bid,
+        "bank_ask": bank_ask,
     }

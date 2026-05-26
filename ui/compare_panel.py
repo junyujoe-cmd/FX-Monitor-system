@@ -10,6 +10,7 @@ class ComparePanel(QWidget):
         self.db = db
         self.calculator = calculator
         self.latest_quotes = {}
+        self.bank_quotes = {}
 
         layout = QVBoxLayout()
         layout.setSpacing(12)
@@ -50,8 +51,10 @@ class ComparePanel(QWidget):
         layout.addStretch()
         self.setLayout(layout)
 
-    def update_bank_data(self, quotes):
+    def update_bank_data(self, quotes, bank_quotes_full=None):
         self.latest_quotes = quotes
+        if bank_quotes_full is not None:
+            self.bank_quotes = bank_quotes_full
 
     def _submit_entry(self):
         try:
@@ -66,21 +69,35 @@ class ComparePanel(QWidget):
                 self.result_label.setText("暂无市场数据，请等待报价刷新")
                 return
 
-            spread = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
-            bank_bid = round(market_mid + spread["bid_offset"], 4)
-            bank_ask = round(market_mid + spread["ask_offset"], 4)
+            # 优先使用真实银行牌价，回退到计算值
+            bq = self.bank_quotes.get(bank, {}).get(pair, {})
+            bank_bid = bq.get("bid") if bq else None
+            bank_ask = bq.get("ask") if bq else None
+            if bank_bid is None or bank_ask is None:
+                spread = BANK_SPREADS.get(bank, {"bid_offset": 0, "ask_offset": 0})
+                bank_bid = round(market_mid + spread["bid_offset"], 4)
+                bank_ask = round(market_mid + spread["ask_offset"], 4)
+
             bank_cost = round((bank_bid + bank_ask) / 2, 4)
 
             if direction == "买入价":
-                bp_vs_bank = round((bank_cost - user_quote) * 10000, 1)
                 bp_vs_market = round((market_mid - user_quote) * 10000, 1)
-                formula_bank = f"({bank_cost:.4f} - {user_quote:.4f}) × 10000 = {bp_vs_bank:.1f}bp"
+                bp_vs_bank = round((bank_cost - user_quote) * 10000, 1)
+                bp_vs_bank_price = round((user_quote - bank_bid) * 10000, 1)
                 formula_market = f"({market_mid:.4f} - {user_quote:.4f}) × 10000 = {bp_vs_market:.1f}bp"
+                formula_bank = f"({bank_cost:.4f} - {user_quote:.4f}) × 10000 = {bp_vs_bank:.1f}bp"
+                price_label = f"{bank}买入价 {bank_bid:.4f}"
+                price_tag = "优惠" if bp_vs_bank_price >= 0 else "更差"
+                formula_price = f"({user_quote:.4f} - {bank_bid:.4f}) × 10000 = {bp_vs_bank_price:.1f}bp"
             else:
-                bp_vs_bank = round((user_quote - bank_cost) * 10000, 1)
                 bp_vs_market = round((user_quote - market_mid) * 10000, 1)
-                formula_bank = f"({user_quote:.4f} - {bank_cost:.4f}) × 10000 = {bp_vs_bank:.1f}bp"
+                bp_vs_bank = round((user_quote - bank_cost) * 10000, 1)
+                bp_vs_bank_price = round((bank_ask - user_quote) * 10000, 1)
                 formula_market = f"({user_quote:.4f} - {market_mid:.4f}) × 10000 = {bp_vs_market:.1f}bp"
+                formula_bank = f"({user_quote:.4f} - {bank_cost:.4f}) × 10000 = {bp_vs_bank:.1f}bp"
+                price_label = f"{bank}卖出价 {bank_ask:.4f}"
+                price_tag = "优惠" if bp_vs_bank_price >= 0 else "更差"
+                formula_price = f"({bank_ask:.4f} - {user_quote:.4f}) × 10000 = {bp_vs_bank_price:.1f}bp"
 
             self.db.save_user_entry(
                 pair=pair, bank=bank, direction=direction,
@@ -97,7 +114,10 @@ class ComparePanel(QWidget):
                 f"  结论: 银行赚取 {bp_vs_market:.1f}bp\n\n"
                 f"▎对比{bank}自身成本\n"
                 f"  公式: {formula_bank}\n"
-                f"  结论: 银行赚取 {bp_vs_bank:.1f}bp"
+                f"  结论: 银行赚取 {bp_vs_bank:.1f}bp\n\n"
+                f"▎对比{price_label}\n"
+                f"  公式: {formula_price}\n"
+                f"  结论: 你比银行牌价{price_tag}{abs(bp_vs_bank_price):.1f}bp"
             )
             self._refresh_recent()
         except ValueError:
